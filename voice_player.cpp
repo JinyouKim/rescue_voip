@@ -84,6 +84,9 @@ void VoicePlayer::run() {
 			
 			size_t length = decoder->decode((unsigned char *)data, messageSize, (int16_t*)pcmBuffer);
 			err = snd_pcm_writei(playerHandle, pcmBuffer, length);
+			struct timespec ts;
+			clock_gettime(CLOCK_REALTIME, &ts);
+			printf("receive time: %llu nsec", (ts.tv_sec * 1000000000L) + ts.tv_nsec);
 			
 			if (err < 0) {
 				avail = err;

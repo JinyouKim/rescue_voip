@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string>
 #include <iostream>
+#include <time.h>
 
 using namespace std;
 
@@ -101,6 +102,11 @@ int VoiceServer::startSendVoice () {
 		}
 		mutexLock.unlock();
 		int err = vr.getVoiceFrame(voiceFrame);
+		// time stamp
+		struct timespec ts;
+		clock_gettime(CLOCK_REALTIME, &ts);
+		printf("send time: %llu ns\n", (ts.tv_sec*1000000000L)+ts.tv_nsec);
+
 		if (err < 0)
 			continue;
 		else {
