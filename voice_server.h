@@ -22,6 +22,7 @@ class VoiceServer {
 		int startSendVoice();
 		void stopSendVoice();
 		void setParameters(int _frameSize, int _sampleRate, int _channels, int _bitRate);
+		int joinMulticastGroup(string _groupIP);
 
 	private:
 		uint32_t getAddressbyString(string _ip);

@@ -10,7 +10,8 @@ int main() {
 	vc.setParameters(160, 8000, 1, 12);
 	vc.createSession();
 	//vc.addAddress("192.168.123.3",DEST_PORT);
-	//vc.addAddress("192.168.123.4");
+	vc.joinMulticastGroup("239.0.0.1");
+	vc.addAddress("239.0.0.1");
 	//vc.addAddress("192.168.123.5",DEST_PORT);
 	//vc.addAddress("192.168.123.6",DEST_PORT);
 

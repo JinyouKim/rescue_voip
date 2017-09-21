@@ -49,7 +49,6 @@ int VoiceServer::createSession(double _second, double _samples, int _payloadType
 	session->SetDefaultMark(false);
 	session->SetDefaultTimestampIncrement(tsPerFrame);
 
-
 	cout<<RTPGetErrorString(status)<<endl;
 	return status;
 }
@@ -63,6 +62,19 @@ uint32_t VoiceServer::getAddressbyString(string _ip) {
 	ip = ntohl(ip);
 
 	return ip;
+}
+
+int VoiceServer::joinMulticastGroup(string _groupIP) {
+	uint32_t groupIP = inet_addr(_groupIP.c_str());
+	if (groupIP == INADDR_NONE) {
+		cerr << "IP error" <<endl;
+		return -1;
+	}
+	groupIP = ntohl(groupIP);
+	RTPIPv4Address addr(groupIP, destPort, true);
+	status = session->JoinMulticastGroup(addr);
+	
+	return status;	
 }
 
 int VoiceServer::addAddress(string _destIP) {
