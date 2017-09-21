@@ -6,13 +6,18 @@
 
 #include <string>
 #include <mutex>
+#include <boost/interprocess/ipc/message_queue.hpp>
 #include "rtpsession.h"
 #include "rtpudpv4transmitter.h"
 #include "rtpsessionparams.h"
 #include "thread_session.h"
+#include "voice_encoder.h"
+#include "voice_recorder.h"
+
 
 using namespace jrtplib;
 using namespace std;
+using namespace boost::interprocess;
 
 class VoiceServer {
 	public:
@@ -28,6 +33,9 @@ class VoiceServer {
 		uint32_t getAddressbyString(string _ip);
 
 	private:
+		VoiceEncoder *ve;
+		VoiceRecorder *vr;
+		message_queue *messageQueue;
 		size_t bytesPerFrame;
 		unsigned int tsPerFrame;
 		uint16_t portbase, destPort;

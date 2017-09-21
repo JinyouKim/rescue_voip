@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <mutex>
 #include <stdlib.h>
 #include <alsa/asoundlib.h>
 #include "voice_recorder.h"
@@ -6,11 +7,13 @@
 #include "voice_player.h"
 #include "voice_encoder.h"
 #include <iostream>
+#include <boost/interprocess/ipc/message_queue.hpp>
 
 using namespace std;
 
 
 VoiceRecorder::VoiceRecorder(unsigned int _samplingRate, int _voiceFrames) {
+	messageQueue = new message_queue(open_only, "framebuffer");
 	samplingRate = _samplingRate;
 	voiceFrames = _voiceFrames;
 	
@@ -117,6 +120,29 @@ int VoiceRecorder::getVoiceFrame(int16_t voiceFrame[]) {
 		return -1;
 	}
 	return 0;
+}
+
+void VoiceRecorder::stop() {
+	mutexLock.lock();
+	isRunning = false;
+	mutexLock.unlock();
+}
+
+void VoiceRecorder::run() {
+	int16_t *voiceFrame = (int16_t *)malloc(sizeof(int16_t) * voiceFrames);
+
+	isRunning = true;
+//	mutexLock.lock();
+	while (isRunning) {
+		if ((err = snd_pcm_readi(captureHandle, voiceFrame, voiceFrames)) != voiceFrames) {
+			cout << "read from audio interface failed" << snd_strerror(err) << endl;
+			snd_pcm_prepare(captureHandle);
+			continue;
+		}
+		messageQueue->send(voiceFrame, voiceFrames * sizeof(int16_t), 0);
+	}
+//	mutexLock.unlock();
+	
 }
 
 void VoiceRecorder::destroy() {

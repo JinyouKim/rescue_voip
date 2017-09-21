@@ -5,13 +5,12 @@
 #include "rtpconfig.h"
 #include "rtppacket.h"
 #include "rtprandom.h"
-#include "voice_recorder.h"
-#include "voice_encoder.h"
 #include <opus/opus.h>
 #include <string>
 #include <cstdio>
 #include <stdlib.h>
 #include <string>
+#include <boost/thread.hpp>
 #include <iostream>
 
 using namespace std;
@@ -29,8 +28,6 @@ void VoiceServer::setParameters(int _frameSize, int _sampleRate, int _channels, 
 	bitRate = _bitRate;
 	bytesPerFrame = bitRate * 1024 * frameSize / sampleRate / 8;
 	tsPerFrame = frameSize * 8000 / sampleRate;
-
-
 }
 
 int VoiceServer::createSession(double _second, double _samples, int _payloadType, bool _isRTCPMultiplexing) {	
@@ -98,25 +95,30 @@ void VoiceServer::stopSendVoice() {
 
 int VoiceServer::startSendVoice () {
 	int packetLength;
-
-	VoiceRecorder vr(sampleRate, frameSize);
-	VoiceEncoder ve(frameSize, sampleRate, channels, bitRate);
-
-	
 	int16_t *voiceFrame = (int16_t *)malloc(sizeof(int16_t) * frameSize * channels);
 	unsigned char *bitStream = (unsigned char*)malloc(bytesPerFrame);
+	
+	message_queue::remove("framebuffer");
+	messageQueue = new message_queue(create_only, "framebuffer", 100, frameSize * sizeof(uint16_t));
+
+	vr = new VoiceRecorder(sampleRate, frameSize);
+	ve = new VoiceEncoder(frameSize, sampleRate, channels, bitRate);
+	boost::thread recorderThread = boost::thread(boost::bind(&VoiceRecorder::run, vr));
+
 	done = false;
 	while (true) {
-		mutexLock.lock();
+//		mutexLock.lock();
 		if (done) {
 			break;
 		}
-		mutexLock.unlock();
-		int err = vr.getVoiceFrame(voiceFrame);
-		if (err < 0)
+//		mutexLock.unlock();
+		message_queue::size_type messageSize;
+		unsigned int priority;
+		messageQueue->receive(voiceFrame, frameSize * sizeof(uint16_t), messageSize, priority);
+		if (messageSize < frameSize * sizeof(uint16_t))
 			continue;
 		else {
-			packetLength = ve.encode(voiceFrame, bitStream, bytesPerFrame);
+			packetLength = ve->encode(voiceFrame, bitStream, bytesPerFrame);
 			status = session->SendPacket(bitStream, packetLength);
 			if (status < 0) {
 				cout<<RTPGetErrorString(status)<<endl;
@@ -125,8 +127,8 @@ int VoiceServer::startSendVoice () {
 		}
 	}
 
-	vr.destroy();
-	ve.destroy();
+	vr->destroy();
+	ve->destroy();
 
 	free(voiceFrame);
 	free(bitStream);
