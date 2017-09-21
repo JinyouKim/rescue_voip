@@ -3,11 +3,13 @@
 #include "voice_player.h"
 #include "stream_info.h"
 #include <boost/interprocess/ipc/message_queue.hpp>
+#include <boost/thread.hpp>
 #include <iostream>
 #include <mutex>
 #include <memory.h>
 #include <sys/time.h>
 
+#define DELAY 100
 using namespace std;
 using namespace boost::interprocess;
 
@@ -15,7 +17,7 @@ VoicePlayer::VoicePlayer(unsigned int _samplingRate, unsigned int _channels, Str
 	samplingRate = _samplingRate;
 	channels = _channels;
 	streamInfo = _streamInfo;
-	messageQueue = new message_queue(open_only, (streamInfo->getSSRCString()).c_str());
+	messageQueue = new message_queue(open_or_create, (streamInfo->getSSRCString()).c_str(), 100, streamInfo->getBufferSize());
 	decoder = new VoiceDecoder(samplingRate, channels);
 }
 
@@ -67,9 +69,12 @@ void VoicePlayer::stop() {
 }
 
 void VoicePlayer::run() {
+	message_queue::size_type messageSize;
+	unsigned int priority;
 	isRunning = true;
 	data = (void *)malloc(streamInfo->getBufferSize());
 	pcmBuffer = (void *)malloc(streamInfo->getBufferSize());
+	boost::this_thread::sleep(boost::posix_time::millisec(DELAY));
 	createHandle();
 	mutexLock.lock();
 	while (isRunning) {
@@ -77,8 +82,6 @@ void VoicePlayer::run() {
 		avail = snd_pcm_avail_update(playerHandle);
 		
 		while (avail >= (int)periodSize) {
-			unsigned int priority;
-			message_queue::size_type messageSize;
 			messageQueue->receive(data, streamInfo->getBufferSize(), messageSize, priority);
 			err = 0;
 			
@@ -93,6 +96,10 @@ void VoicePlayer::run() {
 		}
 		if (avail == -EPIPE) {
 			cout <<"XRUN"<<endl;
+			boost::this_thread::sleep(boost::posix_time::millisec(DELAY));
+			size_t remains = messageQueue->get_num_msg();
+			while(messageQueue->try_receive(data, streamInfo->getBufferSize(), messageSize, priority));
+			
 			snd_pcm_drain(playerHandle);
 			snd_pcm_prepare(playerHandle);
 			for (int i = 0; i < bufferSize / periodSize; i++) 
